@@ -620,6 +620,228 @@ The corresponding command to remove the simulation is:
 pymobiledevice3 developer dvt simulate-location clear
 ```
 
+Yes — and based on what you just discovered, I would **update the README to make the tunnel method the recommended method**, rather than leaving it as an optional/advanced path.
+
+The important new working setup is:
+
+### Recommended workflow
+
+**Terminal 1 — keep this running:**
+
+```bash
+sudo pymobiledevice3 remote tunneld
+```
+
+You should see something like:
+
+```text
+Created tunnel --rsd fd0f:1079:eb80::1 58990
+```
+
+**Terminal 2 — set the location:**
+
+```bash
+pymobiledevice3 developer dvt simulate-location set --tunnel '' -- 42.341368 -71.104866
+```
+
+The `--` is important because your CLI otherwise interprets a negative longitude such as `-71.104866` as an option.
+
+### I'd add this section to your README
+
+````markdown
+# Recommended iOS 17+ Tunnel Setup
+
+For reliable location simulation on iOS 17+, the most reliable setup is to run
+`pymobiledevice3`'s tunneld service in one Terminal window and use the tunnel
+from a second Terminal window.
+
+## Terminal 1 — Start tunneld
+
+Run:
+
+```bash
+sudo pymobiledevice3 remote tunneld
+````
+
+Leave this Terminal window running.
+
+A successful startup will look similar to:
+
+```text
+INFO: Uvicorn running on http://127.0.0.1:49151
+INFO: Created tunnel --rsd fd0f:1079:eb80::1 58990
+```
+
+The exact RSD address and port will vary.
+
+Do not close this Terminal while using location simulation.
+
+## Terminal 2 — Set the Location
+
+In a second Terminal window, run:
+
+```bash
+pymobiledevice3 developer dvt simulate-location set --tunnel '' -- LATITUDE LONGITUDE
+```
+
+For example:
+
+```bash
+pymobiledevice3 developer dvt simulate-location set --tunnel '' -- 42.341368 -71.104866
+```
+
+The `--` before the coordinates is important.
+
+### Why is `--` necessary?
+
+`pymobiledevice3` uses a command-line parser that can interpret a negative
+longitude as an option.
+
+For example:
+
+```text
+-71.104866
+```
+
+may incorrectly be interpreted as an option beginning with `-`.
+
+Using:
+
+```bash
+-- 42.341368 -71.104866
+```
+
+tells the command-line parser that everything after `--` is positional
+argument data.
+
+## Keep Terminal 1 Running
+
+The tunneld process is the persistent connection to the iPhone's developer
+services.
+
+Therefore:
+
+```text
+Terminal 1
+sudo pymobiledevice3 remote tunneld
+        │
+        │
+        ▼
+   iPhone tunnel
+        │
+        ▲
+        │
+Terminal 2
+pymobiledevice3 developer dvt simulate-location ...
+```
+
+If Terminal 1 is terminated, the tunnel will eventually disappear and
+location simulation may stop working.
+
+## Reset the Location
+
+To clear the simulated location:
+
+```bash
+pymobiledevice3 developer dvt simulate-location clear --tunnel ''
+```
+
+If the installed version requires the device selection to be specified
+differently, check:
+
+```bash
+pymobiledevice3 developer dvt simulate-location clear -h
+```
+
+## Useful Commands
+
+Check the available DVT commands:
+
+```bash
+pymobiledevice3 developer dvt -h
+```
+
+Check location simulation:
+
+```bash
+pymobiledevice3 developer dvt simulate-location -h
+```
+
+Check the tunnel options:
+
+```bash
+pymobiledevice3 developer dvt simulate-location set -h
+```
+
+Check RemoteXPC/tunneld:
+
+```bash
+pymobiledevice3 remote -h
+```
+
+## If the Tunnel Gets Confused
+
+If commands start behaving strangely, the simplest recovery is to restart
+the Terminal processes.
+
+1. Stop the existing `pymobiledevice3` processes with `Ctrl+C`.
+2. Close/reopen the Terminal windows if necessary.
+3. Start tunneld again:
+
+```bash
+sudo pymobiledevice3 remote tunneld
+```
+
+4. Open a second Terminal.
+5. Set the location again:
+
+```bash
+pymobiledevice3 developer dvt simulate-location set --tunnel '' -- LATITUDE LONGITUDE
+```
+
+Example:
+
+```bash
+pymobiledevice3 developer dvt simulate-location set --tunnel '' -- 42.341368 -71.104866
+```
+
+## Important
+
+The tunneld Terminal must remain running while using the tunnel.
+
+The location command itself does not need to remain running indefinitely;
+the tunnel/developer-service infrastructure is what maintains communication
+with the device.
+
+````
+
+### One other change I'd make
+
+Your current README has the direct command presented as the primary workflow:
+
+```bash
+pymobiledevice3 developer dvt simulate-location set LATITUDE LONGITUDE
+````
+
+I'd change that to:
+
+```bash
+# Terminal 1
+sudo pymobiledevice3 remote tunneld
+
+# Terminal 2
+pymobiledevice3 developer dvt simulate-location set --tunnel '' -- LATITUDE LONGITUDE
+```
+
+and label the old direct method **"Simple/Legacy Method"**.
+
+That way, when you come back to this repo months from now, the README immediately tells you **exactly what you actually got working on your Mac/iPhone**, instead of making you rediscover the tunnel setup.
+
+
+
+
+
+
 ---
 
 ## License / Attribution
